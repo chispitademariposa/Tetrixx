@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Tetris</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #fff;
+            height: 100vh;
+            justify-content: center;
+        }
+        #game {
+            border: 1px solid #fff;
+            display: grid;
+            grid-template-columns: repeat(10, 30px);
+            grid-template-rows: repeat(20, 30px);
+            background-color: #000;
+            position: relative;
+            display: none; /* Oculto inicialmente */
+        }
+        .block {
+            width: 30px;
+            height: 30px;
+            box-sizing: border-box;
+        }
+        #score {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+        #startButton {
+            padding: 20px;
+            font-size: 24px;
+            background-color: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #startButton:hover {
+            background-color: darkred;
+        }
+        #instructions {
+            margin-top: 20px;
+            font-size: 18px;
+            display: none; /* Oculto inicialmente */
+        }
+    </style>
+</head>
+<body>
+
+<button id="startButton">COMENZAR</button>
+<div id="instructions">Usa 'A' para mover a la izquierda y 'D' para mover a la derecha.</div>
+<div id="game"></div>
+<div id="score">Puntos: 0</div>
+
+<script>
+    const colors = ['#FF5733', '#33FF57', '#3357FF', '#F1C40F', '#8E44AD'];
+    const game = document.getElementById('game');
+    const scoreDisplay = document.getElementById('score');
+    const instructions = document.getElementById('instructions');
+    let score = 0;
+    let interval;
+    
+    const pieces = [
+        [[1, 1, 1, 1]], // I
+        [[1, 1], [1, 1]], // O
+        [[1, 1, 1], [0, 1, 0]], // T
+        [[1, 1, 0], [0, 1, 1]], // Z
+        [[0, 1, 1], [1, 1, 0]], // S
+        [[1, 1, 1], [1, 0, 0]], // L
+        [[1, 1, 1], [0, 0, 1]]  // J
+    ];
+
+    let currentPiece, currentPosition;
+
+    function startGame() {
+        document.getElementById('startButton').style.display = 'none';
+        instructions.style.display = 'block';
+        game.style.display = 'grid'; // Mostrar el tablero
+        score = 0;
+        scoreDisplay.innerText = 'Puntos: ' + score;
+        game.innerHTML = '';
+        createGrid();
+        spawnPiece();
+        interval = setInterval(moveDown, 1000);
+    }
+
+    function createGrid() {
+        for (let i = 0; i < 200; i++) {
+            const block = document.createElement('div');
+            block.classList.add('block');
+            game.appendChild(block);
+        }
+    }
+
+    function draw() {
+        currentPiece.shape.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value) {
+                    const index = (currentPosition.y + y) * 10 + (currentPosition.x + x);
+                    game.children[index].style.backgroundColor = colors[currentPiece.color];
+                }
+            });
+        });
+    }
+
+    function undraw() {
+        currentPiece.shape.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value) {
+                    const index = (currentPosition.y + y) * 10 + (currentPosition.x + x);
+                    game.children[index].style.backgroundColor = '';
+                }
+            });
+        });
+    }
+
+    function spawnPiece() {
+        const randomIndex = Math.floor(Math.random() * pieces.length);
+        currentPiece = { shape: pieces[randomIndex], color: randomIndex };
+        currentPosition = { x: 3, y: 0 };
+        draw();
+    }
+
+    function moveDown() {
+        undraw();
+        currentPosition.y++;
+        if (collision()) {
+            currentPosition.y--;
+            draw();
+            placePiece();
+            spawnPiece();
+        } else {
+            draw();
+        }
+    }
+
+    function collision() {
+        return currentPiece.shape.some((row, y) => {
+            return row.some((value, x) => {
+                if (value) {
+                    const index = (currentPosition.y + y) * 10 + (currentPosition.x + x);
+                    return index >= 200 || game.children[index].style.backgroundColor !== '';
+                }
+                return false;
+            });
+        });
+    }
+
+    function placePiece() {
+        currentPiece.shape.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value) {
+                    const index = (currentPosition.y + y) * 10 + (currentPosition.x + x);
+                    game.children[index].style.backgroundColor = colors[currentPiece.color];
+                }
+            });
+        });
+        checkLines();
+    }
+
+    function checkLines() {
+        for (let y = 19; y >= 0; y--) {
+            let isFull = true;
+            for (let x = 0; x < 10; x++) {
+                if (!game.children[y * 10 + x].style.backgroundColor) {
+                    isFull = false;
+                    break;
+                }
+            }
+            if (isFull) {
+                for (let x = 0; x < 10; x++) {
+                    game.children[y * 10 + x].style.backgroundColor = '';
+                }
+                score += 100; // Aumentar la puntuación por línea eliminada
+                scoreDisplay.innerText = 'Puntos: ' + score;
+                // Mover las líneas superiores hacia abajo
+                for (let k = y - 1; k >= 0; k--) {
+                    for (let x = 0; x < 10; x++) {
+                        const indexAbove = k * 10 + x;
+                        const indexBelow = (k + 1) * 10 + x;
+                        game.children[indexBelow].style.backgroundColor = game.children[indexAbove].style.backgroundColor;
+                    }
+                }
+            }
+        }
+    }
+
+    function moveLeft() {
+        undraw();
+        currentPosition.x--;
+        if (collision()) {
+            currentPosition.x++;
+        }
+        draw();
+    }
+
+    function moveRight() {
+        undraw();
+        currentPosition.x++;
+        if (collision()) {
+            currentPosition.x--;
+        }
+        draw();
+    }
+
+    document.getElementById('startButton').addEventListener('click', startGame);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'a') moveLeft();
+        if (event.key === 'd') moveRight();
+    });
+</script>
+
+</body>
+</html>
